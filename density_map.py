@@ -5,25 +5,26 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import yt
 import unyt
-from swiftsimio.visualisation.slice import slice_gas
 from swiftsimio import mask
 from swiftsimio import load
 from swiftsimio.visualisation.smoothing_length_generation import generate_smoothing_lengths
 from swiftsimio.visualisation.projection import scatter
 #choose halo with small and large magnitude gap
+
 def halo_finder(gap):
     #look through presaved dataset 
-    ds = yt.load("r_mag_gap/m8_1800_z0_200c_1e14_50kpc.h5")
+    ds = yt.load("r_mag_gap/m8_1800_z0_500c_1e13_50kpc.h5")
     data = ds.data
     bgg_4th = -2.5 * np.log10(data['lum_4thbgg'])
     bgg = -2.5 * np.log10(data['lum_bgg'])
     halo_id = data['host_id']
-    mass = data['M200c']
+    mass = data['M500c']
     print('finding halo id...')
     for i in range(len(halo_id)):
         mag_gaps =  np.abs(bgg[i] - bgg_4th[i])
         if np.abs(mag_gaps - gap) <= 0.05:
             print(bgg[i])
+            print( bgg_4th[i])
             print(mag_gaps)
             return halo_id[i]
 
@@ -39,7 +40,7 @@ def plot_density_map(clust_idx, idx_gals,CoP, haloRadius, flamingoFile, z, mag_g
     xCen = unyt.unyt_quantity(xChoice,'Mpc')
     yCen = unyt.unyt_quantity(yChoice,'Mpc')
     zCen = unyt.unyt_quantity(zChoice,'Mpc')
-    maxRegion = unyt.unyt_quantity(1.5*rChoice,'Mpc')
+    maxRegion = unyt.unyt_quantity(1*rChoice,'Mpc')
     maskRegion = mask(flamingoFile)
 
     #spatially mask the snapshot data around the cluster                                                                                                                                                     
@@ -105,7 +106,7 @@ def plot_density_map(clust_idx, idx_gals,CoP, haloRadius, flamingoFile, z, mag_g
     #VR ID is just the index+1 since the VR_ID list starts at 1
     
     cs = ['red','green','yellow']
-    for i in range(3):
+    for i in range(5):
         rsub= unyt.unyt_quantity(50,'kpc')*(1.+z)
         xsub=CoP[idx_gals[i],0] - xChoice
         ysub=CoP[idx_gals[i],1] - yChoice
@@ -113,8 +114,8 @@ def plot_density_map(clust_idx, idx_gals,CoP, haloRadius, flamingoFile, z, mag_g
         ysub = (ysub +maxRegion.value)/(2.*maxRegion.value)
 
         #scatter image is inverted so flip the subhalo x and y coords
-        axs.add_patch(Circle(( ysub*mapRes,  xsub*mapRes), rsub.to('Mpc')*mapRes/(2.*maxRegion.value),fill=False,color=cs[i],linewidth=2))
-        axs.annotate('%.2f' % mag_gals[i], (((0.01 + ysub)*mapRes), ((-0.02 + xsub)*mapRes)),color=cs[i])
+        axs.add_patch(Circle(( ysub*mapRes,  xsub*mapRes), rsub.to('Mpc')*mapRes/(2.*maxRegion.value),fill=False,linewidth=2))
+        axs.annotate('%.2f' % mag_gals[i], (((0.01 + ysub)*mapRes), ((-0.02 + xsub)*mapRes)))
  
     bgg_subx, bgg_suby, bgg_rsub = 0.5, 0.5,  unyt.unyt_quantity(50,'kpc')*(1.+z)
     breakpoint()     
@@ -128,8 +129,8 @@ run = "HYDRO_FIDUCIAL"
 run_name = "HF"
 data_path = group_path + box + "/" + run
 catalogue = "/SOAP"
-delta="200_crit" # density contrast [200_mean, 500_crit etc]
- 
+delta="500_crit" # density contrast [200_mean, 500_crit etc]
+  
 if __name__ == "__main__":
     snapshot_ID = 77
     halo_props_name = "/halo_properties_" + str(snapshot_ID).zfill(4) + ".hdf5"
@@ -162,7 +163,8 @@ if __name__ == "__main__":
     h5file.close()
     
     #identify the VR ID and index of the host halo
-    halo_id = halo_finder(gap=3.5)
+    #halo_id = halo_finder(gap=3.5)
+    halo_id = 1.0
     idx_cluster = np.where(VR_ID == halo_id)[0]
      
     #VR IDs of subhalos
@@ -174,10 +176,11 @@ if __name__ == "__main__":
     
     idx_gals = []
     mag_gals = []
-    for i in range(3):
+    '''
+    for i in range(5):
         j = i +1
         VR_gals = sub_VRs[np.argsort(sub_lums)[-j]]
         idx_gals.append(np.where(VR_ID == VR_gals)[0])
         mag_gals.append(-2.5*np.log10(np.sort(sub_lums)[-j]))
-    
+    '''
     plot_density_map(idx_cluster,idx_gals, CoP, haloRadius, snapshot_path, 0, mag_gals)
