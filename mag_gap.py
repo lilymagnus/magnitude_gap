@@ -7,6 +7,7 @@ import scipy
 from scipy.optimize import curve_fit
 
 def mass_bin(hmass, mag_gap):
+     print(np.max(hmass))
      #sort and bin data in terms of halo masses                                                                                                                                                          
      array = tuple(zip(hmass, mag_gap))
      #sorting the tuple in order of mass values                                                                                                                                                          
@@ -36,6 +37,7 @@ def mass_bin(hmass, mag_gap):
           #boot_high.append(boot[1])                                                                                                                                                                    
 
           del mag_list[0:n[i]]
+     
      return mag_gap_median, mass_list, bins
 
 def func(x, a, b):
@@ -44,44 +46,46 @@ def func(x, a, b):
 
 if __name__ == "__main__":
      mgap = []
-     for z in range(0,3):
-          print(z)
-          ds = yt.load("r_mag_gap/1800/m8_1800_z%s" % z + "_500c_1e13_50kpc.h5")
-          data = ds.data     
-          hmass = data['M500c']
-          mag_gap = data['mag_gap']
-          bgg = -2.5 * np.log10(data['lum_bgg'])
-          bgg_4th = -2.5 * np.log10(data['lum_4thbgg'])
-          '''
-          #plt.scatter(np.log10(M200c), bgg, color='r', s=10)
-          plt.scatter(mag_gap, bgg, color='r', s=10, label='bcg')
-          plt.scatter(mag_gap, bgg_4th, color='b', s=10, label='4th bcg')
-          plt.xlabel('Halo Mass (200crit)')
-          plt.ylabel('r-band magnitude')
-          plt.legend()
-          plt.savefig('bcg_mag_mass.png')
-          breakpoint()
-          '''
+     z =0
+     #for z in range(0,3):
+     print(z)
+     ds = yt.load("r_mag_gap/3600/m8_3600_z%s" % z + "_500c_1e13_50kpc.h5")
+     data = ds.data     
+     hmass = data['M500c']
+     mag_gap = data['M14']
+     
+     bgg = -2.5 * np.log10(data['lum_bgg'])
+     bgg_4th = -2.5 * np.log10(data['lum_4thbgg'])
+     bgg_2nd = -2.5 * np.log10(data['lum_2ndbgg'])
+     
+     plt.scatter(np.log10(hmass), bgg, color='r', s=10, label='bcg')
+     plt.scatter(np.log10(hmass), bgg_4th, color='b', s=10, label='4th bcg')
+     #plt.scatter(mag_gap, bgg, color='r', s=10, label='bcg')
+     #plt.scatter(mag_gap, bgg_4th, color='b', s=10, label='4th bcg')
+     plt.xlabel('Halo Mass')
+     #plt.xlabel('M14')
+     plt.ylabel('r-band magnitude')
+     plt.legend()
+     plt.savefig('bcg_mag_mass.png')
+     breakpoint()
           
-          mag_median, mass_list, bins = mass_bin(hmass, mag_gap)
-          x = np.linspace(np.min(mass_list), np.max(mass_list), len(bins)-1)
-          #plt.fill_between(x, perc_16, perc_84,alpha=0.5)
-          plt.scatter(x,mag_median, marker='x',label='z: %s' % z)
-          
-          if z == 2:
-               breakpoint()
-          mgap.append(mag_median)
-          #plt.plot(x, func(x, param[0], param[1]))
-           
-          #asymmetric_error = np.array(list(zip((np.array(median)-np.array(boot_low)), 
-          #                                     (np.array(boot_high)-np.array(median))))).T
-          #plt.errorbar(x, median, yerr=asymmetric_error, fmt='.', ecolor = 'red')
-          del ds
-
+     mag_median, mass_list, bins = mass_bin(hmass, mag_gap)
+     x = np.linspace(np.min(mass_list), np.max(mass_list), len(bins)-1)
+     #plt.fill_between(x, perc_16, perc_84,alpha=0.5)
+     plt.scatter(x,mag_median, marker='x',label='z: %s' % z)
+     
+     mgap.append(mag_median)
+     #plt.plot(x, func(x, param[0], param[1]))
+     
+     #asymmetric_error = np.array(list(zip((np.array(median)-np.array(boot_low)), 
+     #                                     (np.array(boot_high)-np.array(median))))).T
+     #plt.errorbar(x, median, yerr=asymmetric_error, fmt='.', ecolor = 'red')
+     #del ds
+     
      #param, _ = curve_fit(func, x, mgap, p0=[2,3])
      plt.ylabel('r-band magnitude gap')
      plt.xlabel('Halo Mass [Msun]')
      plt.legend()
-     plt.savefig("redshift_mag_gap.png")
+     plt.savefig("redshift_mag_gap_3600.png")
 
      breakpoint()

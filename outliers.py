@@ -3,7 +3,7 @@ import numpy as np
 import h5py as h5
 import unyt
 import matplotlib.pyplot as plt
-ds = yt.load("r_mag_gap/m8_1800_z0_500c_1e13_50kpc.h5")
+ds = yt.load("r_mag_gap/1800/m8_1800_z0_500c_1e13_50kpc.h5")
 data = ds.data
 
 group_path = "/cosma8/data/dp004/flamingo/Runs/"
@@ -16,7 +16,7 @@ halo_props_name = "/halo_properties_" + str(snapshot_ID).zfill(4) + ".hdf5"
 
 catalogue_path = data_path + catalogue + halo_props_name
 h5file = h5.File(catalogue_path, 'r')
-if __name__ == "__main__":
+def plot_offset():
     h5file = h5.File(catalogue_path, 'r')
     h5dset = h5file['/SO/200_crit/SORadius']
     R200c = h5dset[...] #Mpc
@@ -56,3 +56,9 @@ if __name__ == "__main__":
     plt.xlabel('Halo Mass [Msun]')
     plt.ylabel('CoP offset [r/R200c]')
     plt.savefig('offset.png')
+
+def plot_4th_offset():
+    
+    for i, frth in enumerate()
+
+    return

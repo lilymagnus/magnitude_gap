@@ -2,7 +2,8 @@ import yt
 import numpy as np
 import h5py as h5
 import unyt
-ds = yt.load("r_mag_gap/m8_1800_z0_500c_1e13_50kpc.h5")
+import matplotlib.pyplot as plt
+ds = yt.load("r_mag_gap/1800/m8_1800_z0_500c_1e13_50kpc.h5")
 data = ds.data
 
 group_path = "/cosma8/data/dp004/flamingo/Runs/"
@@ -15,10 +16,10 @@ halo_props_name = "/halo_properties_" + str(snapshot_ID).zfill(4) + ".hdf5"
 
 catalogue_path = data_path + catalogue + halo_props_name
 h5file = h5.File(catalogue_path, 'r')
-if __name__ == "__main__":
+def plot_offset():
     h5file = h5.File(catalogue_path, 'r')
     h5dset = h5file['/SO/200_crit/SORadius']
-    R200c = h5dset[...] #kpc
+    R200c = h5dset[...] #Mpc
     
     h5dset = h5file['/VR/CentreOfPotential']
     CoP = h5dset[...] #Mpc                                                                                                                                                                               
@@ -46,5 +47,18 @@ if __name__ == "__main__":
             
             r =np.sqrt(np.sum((bgg_loc-host_cop)**2))
             r = unyt.unyt_quantity(r,'Mpc')
-            print(r.to('kpc')/R200c[np.where(VR_ID == host_id[idx])[0]])
-            offset.append(r.to('kpc')/R200c[np.where(VR_ID == host_id[idx])[0]])
+            print(np.sqrt(r)/R200c[np.where(VR_ID == host_id[idx])[0]])
+            offset.append(np.sqrt(r)/R200c[np.where(VR_ID == host_id[idx])[0]])
+    
+
+    plt.scatter(mass,offset)
+    plt.xscale('log')
+    plt.xlabel('Halo Mass [Msun]')
+    plt.ylabel('CoP offset [r/R200c]')
+    plt.savefig('offset.png')
+
+def plot_4th_offset(clust_id):
+    
+    for i, frth in enumerate()
+
+    return
