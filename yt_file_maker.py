@@ -12,7 +12,7 @@ from yt.funcs import get_pbar
 import cat_reader as cat
 
 group_path = "/cosma8/data/dp004/flamingo/Runs/"
-res = '1800'
+res = '3600'
 box = "L1000N" + res
 run = "HYDRO_FIDUCIAL"
 data_path = group_path + box + "/" + run
@@ -91,7 +91,9 @@ if __name__ == "__main__":
     storage = {}
     
     for my_storage, i in yt.parallel_objects(range(len(sub_dict_list)), storage=storage, dynamic=False):
-        temp_dict = {'M500c':[],'host_id':[],'lum_bgg':[],'lum_4thbgg':[], 'lum_2ndbgg':[], 'M12':[], 'M14':[], 'bgg_VR_id':[]}
+        temp_dict = {'M500c':[],'host_id':[],'lum_bgg':[],'lum_4thbgg':[], 'lum_2ndbgg':[], 'M12':[], 
+                     'M14':[], 'bgg_VR_id':[], 'bgg4th_VR_id':[], 'CoP':[]}
+        
         host_key = sub_dict_list[i]
         pbar.update(i)
 
@@ -120,7 +122,7 @@ if __name__ == "__main__":
         else:
             temp_dict['M500c'] = M500c_hosts[host_idx]            
             temp_dict['host_id'] = host_key
-            
+            temp_dict['CoP'] = CoP_hosts[host_idx]
             #luminosity of bgg is just luminosity of host halo at central 50kpc
             bgg_4th = np.sort(subs_lums_R200)[-3]
             bgg = gal_lums_hosts[host_idx]
@@ -137,9 +139,13 @@ if __name__ == "__main__":
                 sub_ids_R200 = sub_ids[(np.where(r_sqrd < (radius)**2)[0])]
                 bgg_id = sub_ids_R200[np.argsort(subs_lums_R200)][-1]
                 temp_dict['bgg_VR_id'] = bgg_id
+                temp_dict['bgg4th_VR_id'] = sub_ids_R200[np.argsort(subs_lums_R200)][-4]
             else:
                 temp_dict['bgg_VR_id'] = host_key
-            
+                sub_ids = VR_ID_subs[(host_id_cut == host_key) & (gal_lums_cut > 0)]
+                sub_ids_R200 = sub_ids[(np.where(r_sqrd < (radius)**2)[0])]
+                temp_dict['bgg4th_VR_id'] = sub_ids_R200[np.argsort(subs_lums_R200)][-3]
+
             temp_dict['lum_bgg'] = float(bgg)
             temp_dict['lum_2ndbgg'] = float(bgg_2nd)
             temp_dict['lum_4thbgg'] = float(bgg_4th)
@@ -175,8 +181,11 @@ if __name__ == "__main__":
                 data['M14'].append(value['M14'])
                 data['M12'].append(value['M12'])
                 data['bgg_VR_id'].append(value['bgg_VR_id'])
+                data['bgg4th_VR_id'].append(value['bgg4th_VR_id'])
+                data['CoP'].append(value['CoP'])
 
-        my_units = {'M500c':'Msun','host_id':'','lum_bgg':'Lsun','lum_4thbgg':'Lsun', 'lum_2ndbgg':'Lsun','M12':'','M14':'', 'bgg_VR_id':''}
+        my_units = {'M500c':'Msun','host_id':'','lum_bgg':'Lsun','lum_4thbgg':'Lsun', 'lum_2ndbgg':'Lsun','M12':'','M14':'', 
+                    'bgg_VR_id':'', 'bgg4th_VR_id':'', 'CoP':'Myr'}
         
         for field in data:
             data[field] = unyt.unyt_array(data[field],my_units[field])
