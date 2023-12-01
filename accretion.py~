@@ -1,0 +1,156 @@
+import numpy as np
+import cat_reader as cat
+import unyt
+import h5py as h5
+import matplotlib.pyplot as plt
+import sys
+from unyt.array import uconcatenate
+import yt
+from yt.funcs import get_pbar
+from utils import snapshot, star_map, locate_gals,data_bin, paths
+#yt.enable_parallelism()
+from collections import defaultdict
+import pandas as pd
+
+group_path = "/cosma8/data/dp004/flamingo/Runs/"
+res = '5040'
+box = "L2800N" + res
+run = "HYDRO_FIDUCIAL"
+data_path = group_path + box + "/" + run
+catalogue = "/SOAP"
+#snapshot(0.5, data_path, catalogue, res)
+if res == '5040':
+    merger_tree_path = "/cosma8/data/dp004/jch/FLAMINGO/MergerTrees/ScienceRuns/" + box + "/" + run + "/trees_f0.1_min10_max100/vr_trees.hdf5"
+else:
+    merger_tree_path = "/cosma8/data/dp004/jch/FLAMINGO/MergerTrees/ScienceRuns/" + box + "/" + run + "/trees_f0.1_min10_max100_vpeak/vr_trees.hdf5"
+
+h5file = h5.File(merger_tree_path, 'r')
+
+h5dset = h5file['/MergerTree/GalaxyID']
+Galaxy_ID = h5dset[...] #ID of each halo                                                                                                                                                             
+
+#h5dset = h5file['MergerTree/DescendantID']
+#Desc_ID =  h5dset[...] #ID of last prog of each halo
+
+h5dset = h5file['Subhalo/ID'] #Galaxy ID given in Velociraptor                                                                                                                                   
+mrg_tree_VR = h5dset[...]
+
+h5dset = h5file['Subhalo/SnapNum']
+Snap_ID = h5dset[...]
+h5file.close()
+
+def get_cat_data(z):
+    snap = snapshot(z, data_path, catalogue, res)
+    halo_props_name = "/halo_properties_" + str(snap).zfill(4) + ".hdf5"
+    catalogue_path = data_path + catalogue + halo_props_name
+    cc = cat.catalogue(catalogue_path, apert='50')
+    
+    M = cc.M500c
+    z = cc.redshift
+    del cc
+    return M, z, (1/(1+z))
+
+#if __name__ == "__main__":
+def save_files():    
+    my_dict = {'VR_ID_z0':[], 'Gamma':[]}
+    snap_z0 = snapshot(0, data_path, catalogue, res)
+    snap_z05 = snapshot(0.5, data_path, catalogue, res)
+    #get indecs of clusters at z=0 and VR_IDs from merger tree
+    snap_idx_z0 = np.where(Snap_ID == snap_z0)[0]
+    mrg_tree_VR_z0 = mrg_tree_VR[snap_idx_z0]
+
+    #VR ids for catalogue and merger tree must be identical
+    #M500c index must be the same
+    
+    #Get mass data from SOAP cat.
+    M_z0, z0,a0 = get_cat_data(0)
+    M_z05, z05, a05 = get_cat_data(0.5)
+
+    mass_cut = np.where(M_z0 > 1e14)[0]
+    #connect z=0 and z=0.5 by sorting in order of VR(z=0) list
+    #use the fact that halos are stored in snapshot order to get VRs for z=0.5
+    #both VR(z=0) and VR(z=0.5) lists should have matching indexes for the same halos
+    #recall VR_ID = index + 1
+    VR_z0 = mrg_tree_VR_z0 - 1 #change to indexes to use in datasets to get mass     
+    VR_sort_idx = VR_z0.argsort()[mass_cut] #sort so only looking at clusters >1e13 at z=0 and their progenitors                                                                                     
+    VR_z0 = VR_z0[VR_sort_idx]    
+    #get main prog at z=0.5
+    snap_diff = 0.05
+    tree_len = int(0.5 / snap_diff)
+    
+    VR_z05 = mrg_tree_VR[snap_idx_z0[VR_sort_idx]+tree_len] - 1
+    redshift_check = np.where(Snap_ID[snap_idx_z0[VR_sort_idx]+tree_len] == snap_z05)[0] #make sure that there is a progenitor at z=0.5                                                          
+    
+    #this will create lists with 0s so we keep index consisten with other data
+    M_sort_z0 = np.zeros(len(VR_z0))
+    M_sort_z05 = np.zeros(len(VR_z05))
+    
+    M_sort_z0[redshift_check] = M_z0[VR_z0[redshift_check]]
+    M_sort_z05[redshift_check] = M_z05[VR_z05[redshift_check]]
+    
+    my_dict['VR_ID_z0'].append(VR_z0 +1)
+    gamma = (np.log10(M_sort_z0) - np.log10(M_sort_z05)) / (np.log10(a0) - np.log10(a05))
+    my_dict['Gamma'].append(gamma)
+    my_units = {'VR_ID_z0':'','Gamma':''}
+
+    for field in my_dict:
+        my_dict[field] = unyt.unyt_array(my_dict[field],my_units[field])
+
+    halo_props_name = "/halo_properties_" + str(snap_z0).zfill(4) + ".hdf5"
+    catalogue_path = data_path + catalogue + halo_props_name
+    h5file = h5.File(catalogue_path, 'r')
+    groupName="/SWIFT/Cosmology/"
+    h5group=h5file[groupName]
+    attrName="Omega_lambda"
+    OmegaLambda=h5group.attrs[attrName]
+    attrName="H0 [internal units]"
+    H0=h5group.attrs[attrName]
+    attrName="Omega_b"
+    OmegaBaryon=h5group.attrs[attrName]
+    attrName="Omega_m"    
+    OmegaMatter=h5group.attrs[attrName]
+    
+    fake_ds = {'H0': H0, 'om_L':OmegaLambda, 'om_M':OmegaMatter}
+    yt.save_as_dataset(fake_ds, 'saved_data/L2800N/5040/m9_acc_500c_z0_1e14_50kpc.h5', data=my_dict)
+
+if __name__ == "__main__":
+    save_files()
+    breakpoint()
+    z = 0    
+    
+    for res in [('3600','m8'), ('1800','m9')]:
+        ds_acc = yt.load("saved_data/" + res[0] + "/" + res[1] + "_acc_200m_z"+str(z)+"_1e14_50kpc.h5")
+        ds_mag = yt.load("saved_data/" + res[0] + "/" +  res[1] + "_mag_200m_z"+str(z)+"_1e14_50kpc.h5")
+    
+        data_acc = ds_acc.data
+        data_mag = ds_mag.data
+    
+        VR_acc = data_acc['VR_ID_z0'][0]
+        VR_mag = data_mag['host_id']
+        m14_list = data_mag['M14']
+        gamma = data_acc['Gamma'][0]
+    
+        #breakpoint()
+        acc = []
+        m14 = []
+        for i, vr in enumerate(VR_mag):
+            idx = np.where(vr == VR_acc)[0]
+            if len(idx) != 0:
+                if np.isfinite(gamma[idx[0]]):
+                    acc.append(gamma[idx[0]])
+                    m14.append(m14_list[i])
+                else:
+                    continue
+     
+        median,_,bins = data_bin(acc, m14, 25, stats=False)
+        x = np.linspace(np.min(acc),np.max(acc),24)
+        plt.scatter(x,median, label = res[0])
+    
+    plt.legend()
+    #plt.xlim(-0.5,7.5)
+    plt.ylabel('mag gap')
+    plt.xlabel('gamma')
+    plt.savefig('acc.png')
+    breakpoint()
+
+

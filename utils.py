@@ -11,7 +11,7 @@ from swiftsimio import load
 def snapshot(z, data_path, catalogue, res):
     start = 0
     print('...locating redshift..')
-    if res == "3600":
+    if (res == "3600") or (res =='5040'):
         start = 78
     elif (res == "1800") or (res == "0900"):
         start = 77
@@ -19,27 +19,73 @@ def snapshot(z, data_path, catalogue, res):
     for i in range(start,0,-1):
         if (res == "3600") and i == 58:
             continue
+        if (res == '5040')  and (i not in [78,76,72,68,58,48,38,18,14,10]):
+            continue
         snapshot_ID = i
         halo_props_name = "/halo_properties_" + str(snapshot_ID).zfill(4) + ".hdf5"
         catalogue_path = data_path + catalogue + halo_props_name
         h5file = h5.File(catalogue_path, 'r')
-        # Read in halo properties                                                                                                                                                                           
+        # Read in halo properties                                                                                                                                           
         groupName = "/SWIFT/Cosmology/"
         h5group = h5file[groupName]
         attrName =  'Redshift'
         redshift = h5group.attrs[attrName]
         h5file.close()
-        print(redshift)
-        if res == "3600":
-            #higher resolution has z = 0.95 and 1.05 etc...                                                                                                                                                 
-            if round(float(redshift),1) == z:
-                return i
-        elif (res == "1800") or (res == "0900"):
-            if round(float(redshift),2) == z:
-                return i
-        else:
-            continue
+        #snaps divided as z = 0.95 and 1.05 etc...                                                                                                                              
+        if round(float(redshift),2) == z:
+            return i
+
     raise Exception('Redshift not found...')
+
+
+
+def DM_map(clust_idx,CoP, haloRadius, flamingoFile, z):
+    #massChoice=cat.haloMass[clust_idx]                                                                                                                                                                                                                                        
+    rChoice=haloRadius[clust_idx]*(1.+z)
+    xChoice=CoP[clust_idx,0]
+    yChoice=CoP[clust_idx,1]
+    zChoice=CoP[clust_idx,2]
+
+    xCen = unyt.unyt_quantity(xChoice,'Mpc')
+    yCen = unyt.unyt_quantity(yChoice,'Mpc')
+    zCen = unyt.unyt_quantity(zChoice,'Mpc')
+    maxRegion = unyt.unyt_quantity(0.5*rChoice,'Mpc')
+    maskRegion = mask(flamingoFile)
+
+    #spatially mask the snapshot data around the cluster                                                                                                                                                                                                                       
+    region=[[xCen-maxRegion,xCen+maxRegion],
+            [yCen-maxRegion,yCen+maxRegion],
+            [zCen-maxRegion,zCen+maxRegion]]
+
+    maskRegion.constrain_spatial(region)
+    data = load(flamingoFile,mask=maskRegion)
+
+    dx=data.dark_matter.coordinates.value[:,0]-xChoice
+    dy=data.dark_matter.coordinates.value[:,1]-yChoice
+    dz=data.dark_matter.coordinates.value[:,2]-zChoice
+    
+    h = generate_smoothing_lengths(
+        data.dark_matter.coordinates,
+        data.metadata.boxsize,
+        kernel_gamma=1.8,
+        neighbours=57,
+        speedup_fac=2,
+        dimension=3
+    )
+
+    m=data.dark_matter.masses.value
+
+    ind=np.where((dx>-maxRegion.value)&(dx<maxRegion.value)&
+             (dy>-maxRegion.value)&(dy<maxRegion.value)&
+             (dz>-maxRegion.value)&(dz<maxRegion.value))[0]
+    #put within bounds [0,1]                                                                                                                                                                                                                                                   
+    dx=(dx[ind]+maxRegion.value)/(2.*maxRegion.value)
+    dy=(dy[ind]+maxRegion.value)/(2.*maxRegion.value)
+    dz=(dz[ind]+maxRegion.value)/(2.*maxRegion.value)
+    h=h[ind]/(2.*maxRegion.value)
+    m=m[ind]
+
+    return dx, dy, dz, h, m, rChoice
 
 def star_map(clust_idx,CoP, haloRadius, flamingoFile, z):    
     #massChoice=cat.haloMass[clust_idx]                                                                                                                                                                                                                                        
@@ -108,7 +154,9 @@ def data_bin(data2, data1, bin_num, stats):
     boot_high = []
     perc_16 = []
     perc_84 = []
+    pbar = yt.get_pbar('Binning data data', len(n))
     for i in range(len(n)):
+        pbar.update(i)
         section = list(np.array(d1_list[0:n[i]]).flatten())
         #m = list(np.array(m_copy[0:n[i]]).flatten())                                                                                                                                                                                                                        
         median.append(np.median(section))
@@ -125,8 +173,8 @@ def data_bin(data2, data1, bin_num, stats):
     if stats == False:
         return median, d2_list, bin_item
 
-def paths(res, z, group_path, catalogue, run):
-    box = "L1000N" + res
+def paths(res, z, group_path, catalogue, run, size, mass, type_):
+    box = size + res
     data_path = group_path + box + "/" + run
 
     snapshot_ID = snapshot(z, data_path, catalogue, res)
@@ -135,10 +183,14 @@ def paths(res, z, group_path, catalogue, run):
 
     snapshot_name = "/flamingo_" + str(snapshot_ID).zfill(4)
     snapshot_path = data_path + "/snapshots" + snapshot_name + snapshot_name + ".hdf5"
-    ds = yt.load("r_mag_gap/" + res +"/m8_" + res +"_z"+str(z)+"_500c_1e13_50kpc.h5")
-    data = ds.data
+    
+    #type: acc_200m or mag_500c
+    if (res == '1800') or (res == '5040') :
+        ds = yt.load("saved_data/" + size + '/' + res + "/m9_" + type_ + '_' + mass +"_z"+str(z)+"_1e14_50kpc.h5")
+    else:                         
+        ds = yt.load("saved_data/" + size + '/' + res + "/m8_" + type_ + '_'+ mass + "_z"+str(z)+"_1e14_50kpc.h5")
 
-    return catalogue_path, snapshot_path, data
+    return catalogue_path, snapshot_path, ds
 
 def region(cent, pos_list, z, radius):
     #only include subs that are within R200c                       

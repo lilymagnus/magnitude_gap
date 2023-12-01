@@ -3,7 +3,7 @@ import numpy as np
 import h5py as h5
 
 class catalogue:
-    def __init__(self,filename, delta_500, delta_200, apert):
+    def __init__(self,filename, apert):
         h5file=h5.File(filename,'r')
         groupName="/SWIFT/Cosmology/"
         #choose the group, in this case Cosmology is the type of cosmology framework setup                                                                                                                 
@@ -30,17 +30,18 @@ class catalogue:
 
         #open the rest of the grouped simulations
         h5file = h5.File(filename, 'r')
-        h5dset = h5file['/SO/'+ delta_500 + '/TotalMass']
+        h5dset = h5file['/SO/500_crit/TotalMass']
         self.M500c = h5dset[...]
-         
-        h5dset = h5file['/SO/'+ delta_200 + '/TotalMass']
-        self.M200c = h5dset[...]
+        h5dset = h5file['/SO/200_mean/TotalMass']
+        self.M200m = h5dset[...] 
         
         h5dset = h5file['VR/ID']
         self.VR_ID = h5dset[...]
         
-        h5dset = h5file['/SO/200_crit/SORadius']
-        self.R200c = h5dset[...] #Mpc                                                                                                                                                                      
+        h5dset = h5file['/SO/500_crit/SORadius']
+        self.R500c = h5dset[...] #Mpc                                                                                                                                                                      
+        h5dset = h5file['/SO/200_mean/SORadius']
+        self.R200m = h5dset[...] #Mpc
         
         h5dset = h5file['InclusiveSphere/'+ apert +'kpc/StellarMass']
         self.stellar_mass = h5dset[...]
@@ -57,12 +58,17 @@ class catalogue:
         
         h5dset = h5file['/VR/CentreOfPotential']
         self.CoP = h5dset[...]
-                
-        h5dset = h5file['/BoundSubhaloProperties/MassWeightedMeanStellarAge']
-        self.age = h5dset[...]
         
-        h5dset = h5file['/BoundSubhaloProperties/StellarMassFractionInMetals']
-        self.metallicity = h5dset[...]
+        h5dset = h5file['/SO/200_mean/CentreOfMass']
+        self.CoM_200m = h5dset[...]
+        
+        h5dset = h5file['/FOFSubhaloProperties/TotalMass']
+        self.fof_subhalo_mass = h5dset[...]
+        #h5dset = h5file['/BoundSubhaloProperties/MassWeightedMeanStellarAge']
+        #self.age = h5dset[...]
+        
+        #h5dset = h5file['/BoundSubhaloProperties/StellarMassFractionInMetals']
+        #self.metallicity = h5dset[...]
 
         #subhalo properties
         h5dset = h5file['/BoundSubhaloProperties/TotalMass']

@@ -1,0 +1,81 @@
+'''
+Measure the completeness of each mass binned
+cluster in both resolutions: 1800 & 3600
+'''
+
+import numpy as np
+import h5py as h5
+import cat_reader as cat
+import unyt
+import matplotlib.pyplot as plt
+import yt
+from utils import snapshot, region, locate_gals,data_bin, paths
+import unyt
+from velociraptor.tools.luminosity_functions import create_luminosity_function
+from yt.funcs import get_pbar
+
+group_path = "/cosma8/data/dp004/flamingo/Runs/"
+run = "HYDRO_FIDUCIAL"
+catalogue = "/SOAP"
+
+if __name__ == "__main__":
+    z = 0
+    res_list = [('3600','L1000N'),('1800','L1000N'),('5040','L2800N')]
+    for res in res_list:
+        #if res[0] != '1800':
+        #    continue
+        catalogue_path, snapshot_path, ds = paths(res[0], z, group_path, catalogue, run, size=res[1], mass='500c',type_='mag')
+        cc = cat.catalogue(catalogue_path, apert='50')        
+        data = ds.data
+        
+        #remove weird galaxies from catalogue list cc.M500c/cc.M200m < 1e-5
+        idx = (cc.M500c/cc.M200m > 1e-5)
+        '''
+        if res[0] != '1800':
+            cluster_mass = cc.M500c[(cc.host_ID == -1) & (cc.M500c > 1e14) & idx]        
+        else:
+        '''    
+        cluster_mass = cc.M500c[(cc.host_ID == -1) & (cc.M500c > 1e14)]
+
+        bins = np.linspace(np.min(np.log10(cluster_mass)),np.max(np.log10(cluster_mass)),15)
+        
+        n_part,_=np.histogram(np.log10(data['M500c']),bins=bins)
+        n_full,_ = np.histogram(np.log10(cluster_mass),bins=bins)
+        
+        fractions = np.array(n_part)/np.array(n_full)
+        plt.plot(bins[:-1],fractions, label=res)
+        print(fractions)
+        del cc
+        '''
+        pbar = yt.get_pbar('Fetching subhalo data', len(bin_item))
+        for i in range(len(bin_item)):
+            pbar.update(i)
+            breakpoint()
+            bin_counter = 0
+            for ihalo, halo_id in enumerate(bin_item[i]):
+                host_idx = np.where(VR_ID == halo_id)[0]
+                host_cop = CoP[host_idx]
+                host_rad = radius[host_idx]
+
+                subh_lums = stellar_lums[(host_ids == halo_id) & (stellar_lums > 0)]                
+                subh_coords = CoP_subs[(host_ids == halo_id) & (stellar_lums > 0)]
+                
+                subs_lums_R200 = subh_lums[region(host_cop, subh_coords, 0, host_rad)]
+                if (len(subs_lums_R200) > 4):
+                    bin_counter =+ 1
+                else:
+                    continue
+
+            print(bin_counter/len(bin_item))
+            fractions.append(bin_counter/len(bin_item))
+        
+        
+        bins = np.linspace(np.min(mass_list),np.max(mass_list),20)
+        plt.bar(np.log10(bins[:-1]),fractions)
+        '''
+    plt.legend()
+    plt.title('M500c Completeness: z=0')
+    plt.ylabel('fraction')
+    plt.xlabel('log10(Mass)')
+    plt.savefig('completeness.png')
+    breakpoint()
